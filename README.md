@@ -6,6 +6,7 @@ I. Stewart, D. Yang, J. Eisenstein.
 2020.
 Characterizing Collective Attention via Descriptor Context: A Case Study of Public Discussions of Crisis Events. 
 ICWSM.
+Preprint [here](https://arxiv.org/abs/1909.08784).
 
 In this study we investigate how collective attention is reflected in the use of descriptive context information, e.g. if an author writes "San Juan, Puerto Rico" instead of "San Juan" then they may assume that their audience needs extra context to understand the location.
 In an analysis of crisis-related posts on Facebook and Twitter, the study finds that intuitive audience-centric factors such as whether a location is "local" can explain the use of descriptor information and validates theories around information status in public discourse (i.e. what it takes for a name to be considered "new" information).
