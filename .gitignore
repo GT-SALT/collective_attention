@@ -54,6 +54,7 @@ scripts/data_processing/twpipe
 scripts/data_processing/gnu
 scripts/data_processing/gsrc
 scripts/data_processing/demographer
+scripts/data_processing/*FB*.ipynb
 scripts/models/*.txt
 scripts/models/checkpoints/*
 scripts/models/Causalinference/
