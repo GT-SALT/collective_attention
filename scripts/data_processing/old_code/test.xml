@@ -1,0 +1,33 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<osm version="0.6" generator="osmconvert 0.8.5" timestamp="2017-11-15T21:43:03Z">
+  <bounds minlat="17.515728" minlon="-68.310244" maxlat="18.81272" maxlon="-65.092622"/>
+<node id="3749363865" lat="17.9847791" lon="-66.1143987" version="1" timestamp="2015-09-18T15:09:42Z" changeset="34105051" uid="3245660" user="G_Fonseca">
+  <tag k="name" v="El Suarito"/>
+  <tag k="amenity" v="restaurant"/>
+  <tag k="cuisine" v="regional"/>
+  <tag k="smoking" v="no"/>
+  <tag k="delivery" v="no"/>
+  <tag k="takeaway" v="yes"/>
+  <tag k="addr:city" v="Guayama"/>
+  <tag k="addr:street" v="Calle Derkes"/>
+  <tag k="addr:postcode" v="00785"/>
+  </node>
+<way id="21661364" version="2" timestamp="2017-05-30T17:49:49Z" changeset="49110749" uid="1330847" user="TheDutchMan13">
+  <nd ref="233371565"/>
+  <nd ref="233371568"/>
+  <nd ref="233371572"/>
+  <nd ref="233371575"/>
+  <tag k="highway" v="residential"/>
+  <tag k="name" v="Calle 10"/>
+  <tag k="tiger:cfcc" v="A41"/>
+  <tag k="tiger:county" v="Aguada, PR"/>
+  <tag k="tiger:name_base" v="Calle 10"/>
+  <tag k="tiger:reviewed" v="no"/>
+  </way>
+<relation id="7736799" version="1" timestamp="2017-11-15T18:48:54Z" changeset="53813135" uid="360392" user="maxerickson">
+  <member type="way" ref="527675404" role="outer"/>
+  <member type="way" ref="527675402" role="inner"/>
+  <tag k="building" v="school"/>
+  <tag k="type" v="multipolygon"/>
+  </relation>
+</osm>

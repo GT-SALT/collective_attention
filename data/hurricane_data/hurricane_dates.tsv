@@ -1,0 +1,16 @@
+hurricane_name	hurricane_date	hurricane_type
+harvey	17-08-17	form
+harvey	26-08-17	landfall
+harvey	03-09-17	dissipation
+maria	16-09-17	form
+maria	19-09-17	landfall
+maria	02-10-17	dissipation
+michael	07-10-18	form
+michael	10-10-18	landfall
+michael	16-10-18	dissipation
+irma	30-08-17	form
+irma	06-09-17	landfall
+irma	13-09-17	dissipation
+florence	31-08-18	form
+florence	14-09-18	landfall
+florence	19-09-18	dissipation

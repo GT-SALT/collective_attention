@@ -1,0 +1,202 @@
+"""
+Generate example plot of named entity with
+frequency and descriptor probability.
+
+prototyped here: plot_frequency_anchoring_information_examples.ipynb
+"""
+from argparse import ArgumentParser
+import logging
+import os
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import dateutil
+from datetime import datetime, timedelta
+from data_helpers import fix_timezone, round_to_day, assign_peak_date, round_to_day
+from math import ceil, floor
+
+def generate_date_range(data, inter_date_days=1):
+    date_buffer_bins = int((data.max() - data.min()).days / inter_date_days)
+    date_range = [data.min() + timedelta(days=(i*inter_date_days)) for i in range(date_buffer_bins+1)]
+    return date_range
+
+def word_wrap(txt, word_wrap_len=3):
+    txt_tokens = txt.split(' ')
+    chunks = int(ceil(len(txt_tokens) / word_wrap_len))
+    txt_wrap = '\n'.join([' '.join(txt_tokens[(chunk*word_wrap_len):((chunk+1)*word_wrap_len)]) for chunk in range(chunks)])
+    return txt_wrap
+
+def main():
+    parser = ArgumentParser()
+    parser.add_argument('--descriptor_data', default='../../data/mined_tweets/combined_tweet_tag_data_NE_flat_parsed_anchor.gz')
+    parser.add_argument('--out_dir', default='../../output')
+    args = vars(parser.parse_args())
+    logging_file = '../../output/generate_example_frequency_context_plot.txt'
+    if(os.path.exists(logging_file)):
+        os.remove(logging_file)
+    logging.basicConfig(filename=logging_file, level=logging.DEBUG)
+    
+    ## load data
+    descriptor_data = pd.read_csv(args['descriptor_data'], sep='\t', index_col=False, compression='gzip', converters={'date' : dateutil.parser.parse})
+    ## clean data
+    # fix bad usernames
+    author_var = 'username'
+    descriptor_data = descriptor_data.assign(**{author_var : descriptor_data.loc[:, author_var].apply(lambda x: x.split(':')[-1])})
+    # fix date timezone problem
+    date_var = 'date'
+    descriptor_data = descriptor_data.assign(**{date_var : descriptor_data.loc[:, date_var].apply(lambda x: fix_timezone(x))})
+    ## add rounded time var
+    round_date_var = '%s_day'%(date_var)
+    descriptor_data = descriptor_data.assign(**{round_date_var : descriptor_data.loc[:, date_var].apply(lambda x: round_to_day(x))})
+    # compute peak times per-NE
+    NE_var = 'NE_fixed'
+    round_date_var = 'date_day'
+    data_name_var = 'data_name_fixed'
+    NE_counts = descriptor_data.groupby([NE_var, data_name_var, round_date_var]).apply(lambda x: x.shape[0]).reset_index().rename(columns={0 : 'NE_count'})
+
+    ## limit to data with consistent NEs
+    # restrict to NEs that occur on at least k dates
+    # compute peaks
+    count_var = 'NE_count'
+    NE_count_peaks = NE_counts.groupby([data_name_var, NE_var]).apply(lambda x: assign_peak_date(x, count_var, date_var=round_date_var)).reset_index().rename(columns={0 : 'peak_date'})
+    descriptor_data = pd.merge(descriptor_data, NE_count_peaks, on=[NE_var, data_name_var], how='inner')
+    
+    ## compute daily frequency
+    # get date ranges for all data
+    data_name_var = 'data_name_fixed'
+    round_date_var = 'date_day'
+    inter_date_days = 1
+    data_date_ranges = descriptor_data.groupby(data_name_var).apply(lambda x: generate_date_range(x.loc[:, round_date_var], inter_date_days=inter_date_days))
+    # add zero counts for null dates
+    # get date range for all NEs
+    NE_counts_date_ranges = pd.merge(NE_counts, data_date_ranges.reset_index().rename(columns={0 : 'data_range'}), on=data_name_var)
+    date_range_var = 'data_range'
+    NE_counts_zeros = []
+    for NE_i, data_i in NE_counts_date_ranges.groupby([NE_var, data_name_var]):
+        date_range_N = len(data_i.loc[:, date_range_var].values[0])
+        data_i_zeros = pd.concat([pd.Series(np.repeat(data_i.loc[:, NE_var].iloc[0], date_range_N)),
+                                  pd.Series(np.repeat(data_i.loc[:, data_name_var].iloc[0], date_range_N)),
+                                  pd.Series(data_i.loc[:, 'data_range'].values[0])], axis=1)
+        data_i_zeros.columns = [NE_var, data_name_var, round_date_var]
+        data_i = pd.merge(data_i, data_i_zeros, on=[NE_var, data_name_var, round_date_var], how='outer')
+        data_i = data_i.drop(date_range_var, axis=1, inplace=False).fillna(0, inplace=False)
+        NE_counts_zeros.append(data_i)
+    NE_counts_zeros = pd.concat(NE_counts_zeros, axis=0)
+    
+    ## compute weekly context use
+    days_per_week = 7
+    week_date_var = 'week_date'
+    days_per_week = 7
+    descriptor_data = descriptor_data.assign(**{
+        week_date_var : descriptor_data.loc[:, date_var].apply(lambda x: round_to_day(x, days_per_week))
+    })
+    inter_date_days = 7
+    data_date_ranges_week = descriptor_data.groupby(data_name_var).apply(lambda x: generate_date_range(x.loc[:, week_date_var], inter_date_days=inter_date_days))
+    context_var = 'anchor'
+    context_pct_var = '%s_pct'%(context_var)
+    week_date_var = 'week_date'
+    NE_context_pcts_week = descriptor_data.groupby([NE_var, data_name_var, week_date_var]).apply(lambda x: x.loc[:, context_var].mean()).reset_index().rename(columns={0 : context_pct_var})
+    NE_context_pcts_date_ranges_week = pd.merge(NE_context_pcts_week, data_date_ranges_week.reset_index().rename(columns={0 : 'data_range'}), on=data_name_var)
+    NE_context_zeros_week = []
+    for (NE_i, data_name_i), data_i in NE_context_pcts_date_ranges_week.groupby([NE_var, data_name_var]):
+        date_range_N = len(data_i.loc[:, date_range_var].values[0])
+        data_i_zeros = pd.concat([pd.Series(np.repeat(data_i.loc[:, NE_var].iloc[0], date_range_N)),
+                                  pd.Series(np.repeat(data_i.loc[:, data_name_var].iloc[0], date_range_N)),
+                                  pd.Series(data_i.loc[:, 'data_range'].values[0])], axis=1)
+        data_i_zeros.columns = [NE_var, data_name_var, week_date_var]
+        data_i = pd.merge(data_i, data_i_zeros, on=[NE_var, data_name_var, week_date_var], how='outer')
+        data_i = data_i.drop(date_range_var, axis=1, inplace=False).fillna(0, inplace=False)
+        NE_context_zeros_week.append(data_i)
+    NE_context_zeros_week = pd.concat(NE_context_zeros_week, axis=0) 
+
+    ## plot
+    word_wrap_len = 3
+    pre_peak_txt = '3 tropical systems currently. On my way to San Juan, PR to cover #Maria'
+    post_peak_txt = 'Frantic at San Francisco Hospital near San Juan where generators have failed'
+    pre_peak_txt =  word_wrap(pre_peak_txt, word_wrap_len=word_wrap_len)
+    post_peak_txt =  word_wrap(post_peak_txt, word_wrap_len=word_wrap_len)
+    # plot params
+    top_k = 10
+    x_range_buffer_pct = 0.1
+    title_font_size = 18
+    label_font_size = 18
+    tick_font_size = 14
+    fig_height = 5
+    fig_width = 10
+    tick_date_fmt = '%d-%m-%Y'
+    ## get count/context data
+    name_i = 'maria'
+    date_range_i = data_date_ranges.loc[name_i]
+    x_range = [min(date_range_i), max(date_range_i)]
+    x_lim_buffer = timedelta(days=((x_range[1]-x_range[0]).days * x_range_buffer_pct))
+    x_lim = [min(date_range_i)-x_lim_buffer, max(date_range_i)+x_lim_buffer]
+    counts_i = NE_counts_zeros[NE_counts_zeros.loc[:, data_name_var]==name_i].sort_values(round_date_var, inplace=False, ascending=True)
+    context_pcts_i = NE_context_zeros_week[NE_context_zeros_week.loc[:, data_name_var]==name_i].sort_values(week_date_var, inplace=False, ascending=True)
+    NE_j = 'san juan'
+    ## organize time, counts
+    raw_counts_j = counts_i[counts_i.loc[:, NE_var]==NE_j].loc[:, count_var]
+    # mark date with max frequency (for final plot)
+    max_count_date_j = date_range_i[np.where(raw_counts_j==raw_counts_j.max())[0][0]]
+    # limit x range to nonzero count dates
+    min_date_j = date_range_i[min(np.where(raw_counts_j > 0.)[0])]
+    max_date_j = date_range_i[max(np.where(raw_counts_j > 0.)[0])]
+    # generate custom date range
+    date_range_j = [min_date_j + timedelta(days=day_ctr) for day_ctr in range((max_date_j - min_date_j).days + 1)]
+    plot_date_range_j = [date_k.timestamp() for date_k in date_range_j]
+    # same custom date range but for weeks
+    days_per_week = 7
+    date_range_j_week = [min_date_j + timedelta(days=i*days_per_week) for i in range(int(floor((max_date_j - min_date_j).days / days_per_week)) + 1)]
+    plot_date_range_j_week = [date_k.timestamp() for date_k in date_range_j_week]
+    # restrict counts to valid dates
+    # raw counts
+    counts_j = counts_i[counts_i.loc[:, NE_var]==NE_j].loc[:, count_var]
+    # log counts
+    counts_i_valid_dates = counts_i[(counts_i.loc[:, round_date_var] >= min_date_j) & 
+                                    (counts_i.loc[:, round_date_var] <= max_date_j)]
+    context_pcts_i_valid_dates = context_pcts_i[(context_pcts_i.loc[:, week_date_var] >= min_date_j) & 
+                                                (context_pcts_i.loc[:, week_date_var] <= max_date_j)]
+    raw_counts_j_valid = counts_i_valid_dates[counts_i_valid_dates.loc[:, NE_var]==NE_j].loc[:, count_var]
+    counts_j = np.log(raw_counts_j_valid+1)
+    context_pcts_j = context_pcts_i_valid_dates[context_pcts_i_valid_dates.loc[:, NE_var]==NE_j].loc[:, context_pct_var]
+
+    ## plot
+    fig_height = 5
+    fig_width = 12
+    fig, ax1 = plt.subplots(figsize=(fig_width, fig_height))
+    ax2 = ax1.twinx()
+    # set axis tick sizes
+    ax1.tick_params(axis='both', which='major', labelsize=tick_font_size)
+    ax2.tick_params(axis='both', which='major', labelsize=tick_font_size)
+    # log counts
+    ax1_line = ax1.plot(plot_date_range_j, counts_j, color='k', label='Log frequency')
+    ax2_line = ax2.plot(plot_date_range_j_week, context_pcts_j, color='r', linestyle='-.', label='P(context)')
+    # vertical line for max frequency
+    # ax1.vlines(x=[max_count_date_j, max_count_date_j], ymin=counts_j.min(), ymax=counts_j.max(), linestyle='--', color='k')
+    ax1.set_ylabel('Log frequency', fontsize=label_font_size)
+    ax2.set_ylabel('P(descriptor)', rotation=270, labelpad=18, fontsize=label_font_size)
+    plt.title('"%s" time series'%(NE_j), fontsize=title_font_size)
+    # multiple axes
+    lines1, labels1 = ax1.get_legend_handles_labels()
+    lines2, labels2 = ax2.get_legend_handles_labels()
+    ax2.legend(lines1+lines2, labels1+labels2, fontsize=tick_font_size)
+    # set x-ticks so they actually fit ;_;
+    x_ticks = plot_date_range_j[::12]
+    date_x_ticks = date_range_j[::12]
+    ax1.set_xticks(x_ticks)
+    ax1.set_xticklabels([date_k.strftime(tick_date_fmt) for date_k in date_x_ticks])
+    ## add text
+    date_range_j_count = len(date_range_j)
+    pre_text_x = plot_date_range_j[int(date_range_j_count * (1/16.))]
+    post_text_x = plot_date_range_j[int(date_range_j_count * (3/4.))]
+    text_y = (counts_j.max() - counts_j.min()) / 2.
+    ax1.text(pre_text_x, text_y, pre_peak_txt, bbox={'alpha':0.5}, fontsize=tick_font_size)
+    ax1.text(post_text_x, text_y, post_peak_txt, bbox={'alpha':0.5}, fontsize=tick_font_size)
+    ## vertical line for collective attention peak
+    ax1.axvline(x=max_count_date_j.timestamp(), linestyle='--', color='k')
+    
+    ## save to file
+    out_file = os.path.join(args['out_dir'], 'frequency_descriptor_plot_data=%s_NE=%s.png'%(name_i, NE_j.replace(' ', '_')))
+    fig.savefig(out_file)
+    
+if __name__ == '__main__':
+    main()
