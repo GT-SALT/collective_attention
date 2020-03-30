@@ -1,7 +1,18 @@
-# Crisis language
-Tracking and evaluating language change over time in the context of a crisis, in the context of information status (from "hearer-old" to "hearer-new" and back again).
+# Collective attention
 
-## How do stuff
+This repository contains code and data associated with the ICWSM 2020 paper: 
+
+I. Stewart, D. Yang, J. Eisenstein. 
+2020.
+Characterizing Collective Attention via Descriptor Context: A Case Study of Public Discussions of Crisis Events. 
+ICWSM.
+
+In this study we investigate how collective attention is reflected in the use of descriptive context information, e.g. if an author writes "San Juan, Puerto Rico" instead of "San Juan" then they may assume that their audience needs extra context to understand the location.
+In an analysis of crisis-related posts on Facebook and Twitter, the study finds that intuitive audience-centric factors such as whether a location is "local" can explain the use of descriptor information and validates theories around information status in public discourse (i.e. what it takes for a name to be considered "new" information).
+
+I have done my best to remove all private data from the data and notebooks, but if you find any please notify me immediately.
+
+## How to replicate the paper
 
 The code is split into data processing and analysis.
 The workflow proceeds as follows.
